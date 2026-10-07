@@ -19,12 +19,57 @@ Recinto:
     - nombre
     - direccion
     - aforo
-  admissible_vars:
     - zonas
+  admissible_vars:
     - servicios
     - direccion_loc
+  unique_indexes: []
+  regular_indexes:
+    - nombre
+    - aforo
+  location_index: direccion
+
+artista:
+  required_vars:
+    - nombre
+    - generos
+    - pais_origen
+    - anio_inicio
+  admissible_vars:
+    - biografia
+    - redes_sociales
   unique_indexes:
     - nombre
   regular_indexes:
-    - aforo
+    - generos
+    - pais_origen
+
+Evento:
+  required_vars:
+    - titulo
+    - artistas
+    - recinto
+    - fecha_hora
+    - precio_por_zona
+  admissible_vars:
+    - entradas_vendidas
+  unique_indexes: []
+  regular_indexes:
+    - fecha_hora
+    - artistas
+    - recinto
+
+Asistente:
+  required_vars:
+    - nombre
+    - correo
+    - fecha_alta
+  admissible_vars:
+    - direccion
+    - direccion_loc
+    - preferencias_genero
+  unique_indexes:
+    - correo
+  regular_indexes:
+    - fecha_alta
   location_index: direccion
