@@ -35,19 +35,15 @@ def getLocationPoint(address: str) -> Point:
         intentos += 1
         try:
             time.sleep(1)
-            #TODO
-            # Es necesario proporcionar un user_agent para utilizar la API
-            # Utilizar un nombre aleatorio para el user_agent
-            location = Nominatim(user_agent="Mi-Nombre-Aleatorio").geocode(address)
+            location = Nominatim(user_agent="P1_Sara_Y_Lidia").geocode(address)
         except GeocoderTimedOut:
-            # Puede lanzar una excepcion si se supera el tiempo de espera
-            # Volver a intentarlo
             continue
-    #TODO
-    # Devolver un GeoJSON de tipo punto con la latitud y longitud almacenadas.
-    # Si no se consiguieron coordenadas, lanzar ValueError: la funcion no puede
-    # devolver un punto inventado ni None silenciosamente. Es lo que espera la
-    # prueba test_get_location_point_timeout_failure.
+
+    if location is None:
+        raise ValueError(f"No se pudieron obtener coordenadas para la dirección: {address}")
+
+    return Point((location.longitude, location.latitude))
+
 
 class Model:
     """ 
@@ -106,18 +102,20 @@ class Model:
                 diccionario con los valores de las atributos del modelo
         """
         self._data: dict[str, str | dict | list] = {}
-        #TODO
-        # Realizar las comprabociones y gestiones necesarias
-        # antes de la asignacion.
+        self._modified_vars = set()
 
-        # Asigna todos los valores en kwargs a las atributos con 
-        # nombre las claves en kwargs
-        # Utilizamos el atributo data para guardar los variables 
-        # almacenadas en la base de datos en una solo atributo
-        # Encapsular los datos en una sola variable facilita la 
-        # gestion en metodos como save.
+        faltan = self._required_vars - kwargs.keys()
+        if faltan:
+            raise ValueError(f"Faltan atributos requeridos: {sorted(faltan)}")
+
+        permitidos = self._required_vars | self._admissible_vars | {"_id"}
+        sobran = kwargs.keys() - permitidos
+        if sobran:
+            raise ValueError(f"Atributos no admitidos: {sorted(sobran)}")
+
         self._data.update(kwargs)
 
+        
     def __setattr__(self, name: str, value: str | dict) -> None:
         """ Sobreescribe el metodo de asignacion de valores a los 
         atributos del objeto con el fin de controlar que atributos 
@@ -126,13 +124,14 @@ class Model:
         if name in self._internal_vars:
             super().__setattr__(name, value)
             return
-        #TODO
-        # Realizar las comprabociones y gestiones necesarias
-        # antes de la asignacion.
 
-        # Asigna el valor value a la variable name
+        if name not in self._required_vars and name not in self._admissible_vars:
+            raise AttributeError(f"Atributo no admitido: {name}")
+
         self._data[name] = value
+        self._modified_vars.add(name)
 
+        
     def __getattr__(self, name: str) -> Any:
         """ Sobreescribe el metodo de acceso a atributos del objeto
         __getattr__ solo es llamado cuando no encuentra el atributo
@@ -153,16 +152,32 @@ class Model:
         actualiza el documento existente con los nuevos valores del
         modelo.
         """
-        #TODO
-        pass #No olvidar eliminar esta linea una vez implementado
+        loc_field = self._location_var
+        if "_id" not in self._data:
+            documento = dict(self._data)
+            if loc_field and loc_field in documento:
+                documento[f"{loc_field}_loc"] = getLocationPoint(documento[loc_field])
+            self._db.insert_one(documento)
+            self._data.update(documento)
+
+        else:
+            cambios = {nombre: self._data[nombre] for nombre in self._modified_vars}
+            if loc_field and loc_field in cambios:
+                cambios[f"{loc_field}_loc"] = getLocationPoint(cambios[loc_field])
+            if cambios:
+                self._db.update_one({"_id": self._data["_id"]}, {"$set": cambios})
+                self._data.update(cambios)
+
+        self._modified_vars.clear()
 
     def delete(self) -> None:
         """
         Elimina el modelo de la base de datos
         """
-        #TODO
-        pass
-    
+        if "_id" in self._data:
+            self._db.delete_one({"_id": self._data["_id"]})
+            del self._data["_id"]
+
     @classmethod
     def find(cls, filter: dict[str, str | dict]) -> Any:
         """ 
@@ -179,9 +194,7 @@ class Model:
             ModelCursor
                 cursor de modelos
         """ 
-        #TODO
-        # cls es el puntero a la clase
-        pass #No olvidar eliminar esta linea una vez implementado
+        return ModelCursor(cls, cls._db.find(filter))
 
     @classmethod
     def aggregate(cls, pipeline: list[dict]) -> pymongo.command_cursor.CommandCursor:
@@ -243,12 +256,18 @@ class Model:
         cls._db = db_collection
         cls._required_vars = required_vars
         cls._admissible_vars = admissible_vars
-        # TODO
-        # Recorrer indexes y crear cada índice segun su tipo: 'unique', 'asc'
-        # y 'geosphere'. Comparar el tipo por igualdad, no con el operador 'in'.
-        # Ojo con el índice geoespacial: save() guarda el GeoJSON Point en
-        # <campo>_loc, luego el índice 2dsphere va sobre <campo>_loc, mientras
-        # que _location_var debe guardar el nombre del campo base.
+        cls._location_var = None
+
+        for field, index_type in (indexes or {}).items():
+            if index_type == "unique":
+                cls._db.create_index([(field, pymongo.ASCENDING)], unique=True)
+            elif index_type == "asc":
+                cls._db.create_index([(field, pymongo.ASCENDING)])
+            elif index_type == "geosphere":
+                cls._location_var = field
+                cls._db.create_index([(f"{field}_loc", pymongo.GEOSPHERE)])
+
+
 
 
 class ModelCursor:
@@ -293,8 +312,12 @@ class ModelCursor:
         Utilizar la funcion next para obtener el siguiente documento del cursor
         Utilizar alive para comprobar si existen mas documentos.
         """
-        #TODO
-        pass #No olvidar eliminar esta linea una vez implementado
+        while self.cursor.alive:
+            try:
+                documento = next(self.cursor)
+            except StopIteration:
+                break
+            yield self.model(**documento)
 
 
 def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd", scope=globals()) -> None:
@@ -314,51 +337,95 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         db_name : str
             nombre de la base de datos
     """
-    #TODO
     # Inicializar base de datos
+    client = MongoClient(mongodb_uri)
+    db = client[db_name]
 
     #TODO
     # Declarar tantas clases modelo colecciones existan en la base de datos
+    with open(definitions_path, "r", encoding="utf-8") as f:
+        definitions = yaml.safe_load(f) or {}
+
+    for model_name, definition in definitions.items():
+        required_vars = set(definition.get("required_vars") or [])
+        admissible_vars = set(definition.get("admissible_vars") or [])
+
+        indexes = {}
+        for field in definition.get("regular_indexes") or []:
+            indexes[field] = "asc"
+        for field in definition.get("unique_indexes") or []:
+            indexes[field] = "unique"
+        location_field = definition.get("location_index")
+        if location_field:
+            indexes[location_field] = "geosphere"
+            admissible_vars.add(f"{location_field}_loc")
+    
     # Leer el fichero de definiciones de modelos para obtener las colecciones,
     # indices y los atributos admitidos y requeridos para cada una de ellas.
     # Ejemplo de declaracion de modelo para colecion llamada MiModelo
-    scope["MiModelo"] = type("MiModelo", (Model,),{})
+        scope[model_name] = type(model_name, (Model,),{})
     # La clase se declara en tiempo de ejecucion y queda en scope, que no tiene
     # por que ser el espacio de nombres global: las pruebas le pasan su propio
     # diccionario. Por eso se inicializa a traves de scope y no por su nombre,
     # que ahi todavia no existe.
-    scope["MiModelo"].init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
+        scope[model_name].init_class(
+            db_collection=db[model_name],
+            indexes=indexes,
+            required_vars=required_vars,
+            admissible_vars=admissible_vars
+        )
 
 if __name__ == '__main__':
-    
-    # Inicializar base de datos y modelos con initApp
-    #TODO
-    initApp()
+    initApp(db_name="abd_test")
+    Recinto._db.delete_many({})
 
-    #Ejemplo
-    m = MiModelo(nombre="Pablo", apellido="Ramos", edad=18)
-    m.save()
-    m.nombre="Pedro"
-    print(m.nombre)
-
-    # Hacer pruebas para comprobar que funciona correctamente el modelo
-    #TODO
     # Crear modelo
+    r = Recinto(nombre="Wizink Center", direccion="Av. Felipe II, Madrid", aforo=17000, zonas=[{"nombre": "Pista", "asientos": 5000}])
 
-    # Asignar nuevo valor a variable admitida del objeto 
+    # Asignar nuevo valor a variable admitida
+    r.aforo = 17453
+    print("Modificadas:", r._modified_vars)
 
-    # Asignar nuevo valor a variable no admitida del objeto 
+    # Asignar nuevo valor a variable no admitida
+    try:
+        r.color = "rojo"
+    except AttributeError as e:
+        print("Rechazado:", e)
 
-    # Guardar
+    # Guardar (inserta, con direccion_loc)
+    r.save()
+    print("Guardado:", Recinto._db.find_one({"_id": r._id}))
 
-    # Asignar nuevo valor a variable admitida del objeto
+    # save no pisa campos que no se modificaron
+    Recinto._db.update_one({"_id": r._id}, {"$set": {"servicios": ["bar"]}})  # cambio "externo"
+    r.aforo = 18000
+    r.save()
+    print("servicios sigue ahí:", Recinto._db.find_one({"_id": r._id}).get("servicios"))
 
-    # Guardar
+    # Modificar un campo admitido y guardar (solo actualiza ese campo)
+    r.aforo = 18000
+    r.save()
 
-    # Buscar nuevo documento con find
+    # Buscar con find y obtener el primer documento
+    primero = next(iter(Recinto.find({"nombre": "Wizink Center"})))
+    print(type(primero), primero.aforo)
 
-    # Obtener primer documento
+    # Modificar y guardar
+    primero.aforo = 19000
+    primero.save()
+    print("Aforo en la base:", Recinto._db.find_one({"_id": primero._id})["aforo"])
 
-    # Modificar valor de variable admitida
+    # Borrar
+    primero.delete()
+    print("Documentos restantes:", Recinto._db.count_documents({}))
 
-    # Guardar
+    # Dirección inexistente: error y nada guardado
+    mala = Recinto(nombre="Sala Fantasma", direccion="asdkjhasdkjh qwoeiuqwoei", aforo=100, zonas=[])
+    try:
+        mala.save()
+    except ValueError as e:
+        print("OK, ValueError:", e)
+    print("Salas fantasma guardadas:", Recinto._db.count_documents({"nombre": "Sala Fantasma"}))
+
+    Recinto._db.database.client.drop_database("abd_test")
+
