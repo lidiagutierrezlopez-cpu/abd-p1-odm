@@ -29,7 +29,6 @@ def getLocationPoint(address: str) -> Point:
             coordenadas del punto de la direccion
     """
     location = None
-    intentos = 0
     maxIntentos = 5
     for _ in range(maxIntentos):
         try:
@@ -104,10 +103,12 @@ class Model:
         self._data: dict[str, str | dict | list] = {}
         self._modified_vars = set()
 
+        # Faltan atributos requeridos:
         faltan = self._required_vars - kwargs.keys()
         if faltan:
             raise ValueError(f"Faltan atributos requeridos: {sorted(faltan)}")
 
+        # Hay atributos de mas:
         permitidos = self._required_vars | self._admissible_vars | {"_id"}
         sobran = kwargs.keys() - permitidos
         if sobran:
@@ -141,6 +142,7 @@ class Model:
         """
         if name in self._internal_vars:
             return super().__getattribute__(name)
+        
         try:
             return self._data[name]
         except KeyError:
@@ -154,18 +156,23 @@ class Model:
         actualiza el documento existente con los nuevos valores del
         modelo.
         """
+        
         loc_field = self._location_var
         if "_id" not in self._data:
             documento = dict(self._data)
+
             if loc_field and loc_field in documento:
                 documento[f"{loc_field}_loc"] = getLocationPoint(documento[loc_field])
+            
             self._db.insert_one(documento)
             self._data.update(documento)
 
         else:
             cambios = {nombre: self._data[nombre] for nombre in self._modified_vars}
+            
             if loc_field and loc_field in cambios:
                 cambios[f"{loc_field}_loc"] = getLocationPoint(cambios[loc_field])
+            
             if cambios:
                 self._db.update_one({"_id": self._data["_id"]}, {"$set": cambios})
                 self._data.update(cambios)
@@ -263,8 +270,10 @@ class Model:
         for field, index_type in (indexes or {}).items():
             if index_type == "unique":
                 cls._db.create_index([(field, pymongo.ASCENDING)], unique=True)
+            
             elif index_type == "asc":
                 cls._db.create_index([(field, pymongo.ASCENDING)])
+            
             elif index_type == "geosphere":
                 cls._location_var = field
                 cls._db.create_index([(f"{field}_loc", pymongo.GEOSPHERE)])
@@ -317,8 +326,10 @@ class ModelCursor:
         while self.cursor.alive:
             try:
                 documento = next(self.cursor)
+
             except StopIteration:
                 break
+
             yield self.model(**documento)
 
 
@@ -354,13 +365,15 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         indexes = {}
         for field in definition.get("regular_indexes") or []:
             indexes[field] = "asc"
+
         for field in definition.get("unique_indexes") or []:
             indexes[field] = "unique"
+
         location_field = definition.get("location_index")
+
         if location_field:
             indexes[location_field] = "geosphere"
             admissible_vars.add(f"{location_field}_loc")
-    
         
         scope[model_name] = type(model_name, (Model,),{})
         
