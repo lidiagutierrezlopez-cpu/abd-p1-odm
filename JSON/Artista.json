@@ -1,0 +1,50 @@
+[
+  {
+    "_id": {
+      "$oid": "6aca3bfbdb15602632cc8280"
+    },
+    "nombre": "Rosalía",
+    "generos": [
+      "flamenco",
+      "pop"
+    ],
+    "pais_origen": "España",
+    "anio_inicio": 2017
+  },
+  {
+    "_id": {
+      "$oid": "6aca3bfbdb15602632cc8281"
+    },
+    "nombre": "Coldplay",
+    "generos": [
+      "rock",
+      "pop"
+    ],
+    "pais_origen": "Reino Unido",
+    "anio_inicio": 1996
+  },
+  {
+    "_id": {
+      "$oid": "6aca3bfbdb15602632cc8282"
+    },
+    "nombre": "Bad Bunny",
+    "generos": [
+      "reguetón",
+      "trap"
+    ],
+    "pais_origen": "Puerto Rico",
+    "anio_inicio": 2016
+  },
+  {
+    "_id": {
+      "$oid": "6aca3bfbdb15602632cc8283"
+    },
+    "nombre": "Taylor Swift",
+    "generos": [
+      "pop",
+      "country"
+    ],
+    "pais_origen": "Estados Unidos",
+    "anio_inicio": 2006
+  }
+]

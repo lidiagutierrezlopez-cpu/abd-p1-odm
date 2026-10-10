@@ -1,0 +1,88 @@
+[
+  {
+    "_id": {
+      "$oid": "6aca3bfbdb15602632cc8284"
+    },
+    "titulo": "Motomami World Tour",
+    "artistas": [
+      {
+        "$oid": "6aca3bfbdb15602632cc8280"
+      }
+    ],
+    "recinto": {
+      "$oid": "6aca3bf8db15602632cc827d"
+    },
+    "fecha_hora": {
+      "$date": "2022-07-23T21:30:00Z"
+    },
+    "precio_por_zona": [
+      {
+        "zona": "Pista",
+        "precio": 65.0
+      },
+      {
+        "zona": "Grada",
+        "precio": 45.0
+      }
+    ],
+    "entradas_vendidas": 16500
+  },
+  {
+    "_id": {
+      "$oid": "6aca3bfbdb15602632cc8285"
+    },
+    "titulo": "The Eras Tour",
+    "artistas": [
+      {
+        "$oid": "6aca3bfbdb15602632cc8283"
+      }
+    ],
+    "recinto": {
+      "$oid": "6aca3bfbdb15602632cc827f"
+    },
+    "fecha_hora": {
+      "$date": "2024-05-29T20:00:00Z"
+    },
+    "precio_por_zona": [
+      {
+        "zona": "Campo",
+        "precio": 120.0
+      },
+      {
+        "zona": "Grada",
+        "precio": 85.0
+      }
+    ],
+    "entradas_vendidas": 76000
+  },
+  {
+    "_id": {
+      "$oid": "6aca3bfbdb15602632cc8286"
+    },
+    "titulo": "Noche Latina",
+    "artistas": [
+      {
+        "$oid": "6aca3bfbdb15602632cc8282"
+      },
+      {
+        "$oid": "6aca3bfbdb15602632cc8280"
+      }
+    ],
+    "recinto": {
+      "$oid": "6aca3bf9db15602632cc827e"
+    },
+    "fecha_hora": {
+      "$date": "2027-03-12T21:00:00Z"
+    },
+    "precio_por_zona": [
+      {
+        "zona": "Pista",
+        "precio": 90.0
+      },
+      {
+        "zona": "Grada",
+        "precio": 60.0
+      }
+    ]
+  }
+]

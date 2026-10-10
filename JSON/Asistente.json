@@ -1,0 +1,55 @@
+[
+  {
+    "_id": {
+      "$oid": "6aca3bfcdb15602632cc8287"
+    },
+    "nombre": "Marta Ruiz",
+    "correo": "marta@example.com",
+    "fecha_alta": {
+      "$date": "2023-02-10T00:00:00Z"
+    },
+    "direccion": "Calle de Alcalá 100, Madrid",
+    "preferencias_genero": [
+      "pop",
+      "flamenco"
+    ],
+    "direccion_loc": {
+      "type": "Point",
+      "coordinates": [
+        -3.674694,
+        40.425088
+      ]
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6aca3bfedb15602632cc8288"
+    },
+    "nombre": "Jordi Puig",
+    "correo": "jordi@example.com",
+    "fecha_alta": {
+      "$date": "2024-09-03T00:00:00Z"
+    },
+    "direccion": "Carrer de Balmes 50, Barcelona",
+    "preferencias_genero": [
+      "rock"
+    ],
+    "direccion_loc": {
+      "type": "Point",
+      "coordinates": [
+        2.163305,
+        41.38894
+      ]
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6aca3bfedb15602632cc8289"
+    },
+    "nombre": "Carmen León",
+    "correo": "carmen@example.com",
+    "fecha_alta": {
+      "$date": "2025-01-20T00:00:00Z"
+    }
+  }
+]

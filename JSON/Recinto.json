@@ -1,0 +1,86 @@
+[
+  {
+    "_id": {
+      "$oid": "6aca3bf8db15602632cc827d"
+    },
+    "nombre": "WiZink Center",
+    "direccion": "Avenida de Felipe II, Madrid",
+    "aforo": 17000,
+    "zonas": [
+      {
+        "nombre": "Pista",
+        "asientos": 6000
+      },
+      {
+        "nombre": "Grada",
+        "asientos": 11000
+      }
+    ],
+    "servicios": [
+      "bar",
+      "guardarropa"
+    ],
+    "direccion_loc": {
+      "type": "Point",
+      "coordinates": [
+        -3.674224,
+        40.423986
+      ]
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6aca3bf9db15602632cc827e"
+    },
+    "nombre": "Palau Sant Jordi",
+    "direccion": "Passeig Olímpic 5, Barcelona",
+    "aforo": 17960,
+    "zonas": [
+      {
+        "nombre": "Pista",
+        "asientos": 7000
+      },
+      {
+        "nombre": "Grada",
+        "asientos": 10960
+      }
+    ],
+    "direccion_loc": {
+      "type": "Point",
+      "coordinates": [
+        2.152513,
+        41.362318
+      ]
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6aca3bfbdb15602632cc827f"
+    },
+    "nombre": "Estadio Santiago Bernabéu",
+    "direccion": "Avenida de Concha Espina 1, Madrid",
+    "aforo": 78000,
+    "zonas": [
+      {
+        "nombre": "Campo",
+        "asientos": 18000
+      },
+      {
+        "nombre": "Grada",
+        "asientos": 60000
+      }
+    ],
+    "servicios": [
+      "bar",
+      "parking",
+      "accesibilidad"
+    ],
+    "direccion_loc": {
+      "type": "Point",
+      "coordinates": [
+        -3.687657,
+        40.452178
+      ]
+    }
+  }
+]
