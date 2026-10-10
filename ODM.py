@@ -3,13 +3,15 @@ __students__ = 'Sara Ayelen Lima Condori, Lidia Gutiérrez López'
 
 
 from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut
+from geopy.exc import GeocoderServiceError
 import time
+from datetime import datetime
 from typing import Generator, Any, Self
 from geojson import Point
 import pymongo
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+from pymongo.errors import DuplicateKeyError
 from bson.objectid import ObjectId
 import yaml
 
@@ -28,14 +30,16 @@ def getLocationPoint(address: str) -> Point:
         geojson.Point
             coordenadas del punto de la direccion
     """
+    
     location = None
     maxIntentos = 5
+
     for _ in range(maxIntentos):
         try:
             time.sleep(1)
             location = Nominatim(user_agent="P1_Sara_Y_Lidia").geocode(address)
             break
-        except GeocoderTimedOut:
+        except GeocoderServiceError:
             continue
 
     if location is None:
@@ -100,6 +104,7 @@ class Model:
             kwargs : dict[str, str | dict]
                 diccionario con los valores de las atributos del modelo
         """
+        
         self._data: dict[str, str | dict | list] = {}
         self._modified_vars = set()
 
@@ -123,6 +128,7 @@ class Model:
         atributos del objeto con el fin de controlar que atributos 
         son modificados y cuando son modificados.
         """
+        
         if name in self._internal_vars:
             super().__setattr__(name, value)
             return
@@ -140,13 +146,14 @@ class Model:
         __getattr__ solo es llamado cuando no encuentra el atributo
         en el objeto 
         """
+        
         if name in self._internal_vars:
             return super().__getattribute__(name)
         
         try:
             return self._data[name]
         except KeyError:
-            raise AttributeError
+            raise AttributeError(name)
         
     def save(self) -> None:
         """
@@ -183,6 +190,7 @@ class Model:
         """
         Elimina el modelo de la base de datos
         """
+        
         if "_id" in self._data:
             self._db.delete_one({"_id": self._data["_id"]})
             del self._data["_id"]
@@ -203,6 +211,7 @@ class Model:
             ModelCursor
                 cursor de modelos
         """ 
+        
         return ModelCursor(cls, cls._db.find(filter))
 
     @classmethod
@@ -222,6 +231,7 @@ class Model:
             pymongo.command_cursor.CommandCursor
                 cursor de pymongo con el resultado de la consulta
         """ 
+        
         return cls._db.aggregate(pipeline)
     
     @classmethod
@@ -262,6 +272,7 @@ class Model:
             admissible_vars : set[str] 
                 Set de atributos admitidos por el modelo
         """
+        
         cls._db = db_collection
         cls._required_vars = required_vars
         cls._admissible_vars = admissible_vars
@@ -269,7 +280,7 @@ class Model:
 
         for field, index_type in (indexes or {}).items():
             if index_type == "unique":
-                cls._db.create_index([(field, pymongo.ASCENDING)], unique=True)
+                cls._db.create_index([(field, pymongo.ASCENDING)], unique=True, sparse=True)
             
             elif index_type == "asc":
                 cls._db.create_index([(field, pymongo.ASCENDING)])
@@ -312,6 +323,7 @@ class ModelCursor:
             cursor: pymongo.cursor.Cursor
                 Cursor de pymongo a iterar
         """
+        
         self.model = model_class
         self.cursor = cursor
     
@@ -323,6 +335,7 @@ class ModelCursor:
         Utilizar la funcion next para obtener el siguiente documento del cursor
         Utilizar alive para comprobar si existen mas documentos.
         """
+        
         while self.cursor.alive:
             try:
                 documento = next(self.cursor)
@@ -350,6 +363,7 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         db_name : str
             nombre de la base de datos
     """
+    
     # Inicializar base de datos
     client = MongoClient(mongodb_uri)
     db = client[db_name]
@@ -385,46 +399,59 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         )
 
 if __name__ == '__main__':
+    # PREPARACIÓN
     initApp(db_name="abd_test")
     Recinto._db.delete_many({})
 
-    # Crear modelo
-    r = Recinto(nombre="Wizink Center", direccion="Av. Felipe II, Madrid", aforo=17000, zonas=[{"nombre": "Pista", "asientos": 5000}])
+    # __init__: VALIDACIÓN DE ATRIBUTOS
+    r = Recinto(nombre="Wizink Center", direccion="Av. Felipe II, Madrid", aforo=17000,
+                zonas=[{"nombre": "Pista", "asientos": 5000}])
+    print("Creado:", r._data)
 
-    # Asignar nuevo valor a variable admitida
+    try:
+        Recinto(nombre="Sin dirección", aforo=100, zonas=[])
+    except ValueError as e:
+        print("OK, falta un requerido:", e)
+
+    try:
+        Recinto(nombre="X", direccion="Madrid", aforo=1, zonas=[], color="rojo")
+    except ValueError as e:
+        print("OK, atributo no admitido:", e)
+
+    # __setattr__: VALIDACIÓN Y REGISTRO DE CAMBIOS
     r.aforo = 17453
     print("Modificadas:", r._modified_vars)
 
-    # Asignar nuevo valor a variable no admitida
     try:
         r.color = "rojo"
     except AttributeError as e:
-        print("Rechazado:", e)
+        print("OK, rechazado:", e)
 
-    # Guardar (inserta, con direccion_loc)
+    # save: INSERCIÓN CON EL PUNTO GeoJSON
     r.save()
     print("Guardado:", Recinto._db.find_one({"_id": r._id}))
 
-    # save no pisa campos que no se modificaron
-    Recinto._db.update_one({"_id": r._id}, {"$set": {"servicios": ["bar"]}})  # cambio "externo"
+    # save: ACTUALIZA SOLO LOS CAMPOS MODIFICADOS
+    Recinto._db.update_one({"_id": r._id}, {"$set": {"nombre": "WiZink (renombrado)"}})  # cambio externo
     r.aforo = 18000
     r.save()
-    print("servicios sigue ahí:", Recinto._db.find_one({"_id": r._id}).get("servicios"))
+    doc = Recinto._db.find_one({"_id": r._id})
+    print("Aforo actualizado:", doc["aforo"])
+    print("Nombre sin pisar:", doc["nombre"])
 
-    # Buscar con find y obtener el primer documento
-    primero = next(iter(Recinto.find({"nombre": "Wizink Center"})))
-    print(type(primero), primero.aforo)
+    # find: DEVUELVE OBJETOS MODELO
+    primero = next(iter(Recinto.find({"_id": r._id})))
+    print("Encontrado:", type(primero).__name__, primero.aforo)
 
-    # Modificar y guardar
     primero.aforo = 19000
     primero.save()
     print("Aforo en la base:", Recinto._db.find_one({"_id": primero._id})["aforo"])
 
-    # Borrar
+    # delete:
     primero.delete()
     print("Documentos restantes:", Recinto._db.count_documents({}))
 
-    # Dirección inexistente: error y nada guardado
+    # DIRECCIÓN INEXISTENTE
     mala = Recinto(nombre="Sala Fantasma", direccion="asdkjhasdkjh qwoeiuqwoei", aforo=100, zonas=[])
     try:
         mala.save()
@@ -432,5 +459,5 @@ if __name__ == '__main__':
         print("OK, ValueError:", e)
     print("Salas fantasma guardadas:", Recinto._db.count_documents({"nombre": "Sala Fantasma"}))
 
+    # LIMPIEZA
     Recinto._db.database.client.drop_database("abd_test")
-
