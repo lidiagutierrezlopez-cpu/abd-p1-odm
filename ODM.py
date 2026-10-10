@@ -5,13 +5,11 @@ __students__ = 'Sara Ayelen Lima Condori, Lidia Gutiérrez López'
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderServiceError
 import time
-from datetime import datetime
 from typing import Generator, Any, Self
 from geojson import Point
 import pymongo
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-from pymongo.errors import DuplicateKeyError
 from bson.objectid import ObjectId
 import yaml
 
@@ -30,14 +28,15 @@ def getLocationPoint(address: str) -> Point:
         geojson.Point
             coordenadas del punto de la direccion
     """
-    
+
+    geolocalizador = Nominatim(user_agent="P1_Sara_Y_Lidia")
     location = None
     maxIntentos = 5
 
     for _ in range(maxIntentos):
         try:
             time.sleep(1)
-            location = Nominatim(user_agent="P1_Sara_Y_Lidia").geocode(address)
+            location = geolocalizador.geocode(address)
             break
         except GeocoderServiceError:
             continue
@@ -166,8 +165,8 @@ class Model:
         
         loc_field = self._location_var
         if "_id" not in self._data:
+            # Documento nuevo
             documento = dict(self._data)
-
             if loc_field and loc_field in documento:
                 documento[f"{loc_field}_loc"] = getLocationPoint(documento[loc_field])
             
@@ -175,8 +174,8 @@ class Model:
             self._data.update(documento)
 
         else:
+            # Documento existente, solo se envían los campos modificados
             cambios = {nombre: self._data[nombre] for nombre in self._modified_vars}
-            
             if loc_field and loc_field in cambios:
                 cambios[f"{loc_field}_loc"] = getLocationPoint(cambios[loc_field])
             
@@ -368,7 +367,7 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
     client = MongoClient(mongodb_uri)
     db = client[db_name]
 
-    # Declarar tantas clases modelo colecciones existan en la base de datos
+    # Leer las definiciones de los modelos
     with open(definitions_path, "r", encoding="utf-8") as f:
         definitions = yaml.safe_load(f) or {}
 
@@ -376,21 +375,20 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         required_vars = set(definition.get("required_vars") or [])
         admissible_vars = set(definition.get("admissible_vars") or [])
 
+        # Traducir las listas de índices del YAML al formato de init_class
         indexes = {}
         for field in definition.get("regular_indexes") or []:
             indexes[field] = "asc"
-
         for field in definition.get("unique_indexes") or []:
             indexes[field] = "unique"
 
         location_field = definition.get("location_index")
-
         if location_field:
             indexes[location_field] = "geosphere"
             admissible_vars.add(f"{location_field}_loc")
-        
+
+        # Crear una subclase de Model para este modelo
         scope[model_name] = type(model_name, (Model,),{})
-        
         scope[model_name].init_class(
             db_collection=db[model_name],
             indexes=indexes,
