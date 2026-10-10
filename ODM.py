@@ -31,11 +31,11 @@ def getLocationPoint(address: str) -> Point:
     location = None
     intentos = 0
     maxIntentos = 5
-    while location is None and intentos < maxIntentos:
-        intentos += 1
+    for _ in range(maxIntentos):
         try:
             time.sleep(1)
             location = Nominatim(user_agent="P1_Sara_Y_Lidia").geocode(address)
+            break
         except GeocoderTimedOut:
             continue
 
@@ -117,7 +117,8 @@ class Model:
 
         
     def __setattr__(self, name: str, value: str | dict) -> None:
-        """ Sobreescribe el metodo de asignacion de valores a los 
+        """
+        Sobreescribe el metodo de asignacion de valores a los 
         atributos del objeto con el fin de controlar que atributos 
         son modificados y cuando son modificados.
         """
@@ -133,7 +134,8 @@ class Model:
 
         
     def __getattr__(self, name: str) -> Any:
-        """ Sobreescribe el metodo de acceso a atributos del objeto
+        """ 
+        Sobreescribe el metodo de acceso a atributos del objeto
         __getattr__ solo es llamado cuando no encuentra el atributo
         en el objeto 
         """
@@ -341,7 +343,6 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
     client = MongoClient(mongodb_uri)
     db = client[db_name]
 
-    #TODO
     # Declarar tantas clases modelo colecciones existan en la base de datos
     with open(definitions_path, "r", encoding="utf-8") as f:
         definitions = yaml.safe_load(f) or {}
@@ -360,14 +361,9 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
             indexes[location_field] = "geosphere"
             admissible_vars.add(f"{location_field}_loc")
     
-    # Leer el fichero de definiciones de modelos para obtener las colecciones,
-    # indices y los atributos admitidos y requeridos para cada una de ellas.
-    # Ejemplo de declaracion de modelo para colecion llamada MiModelo
+        
         scope[model_name] = type(model_name, (Model,),{})
-    # La clase se declara en tiempo de ejecucion y queda en scope, que no tiene
-    # por que ser el espacio de nombres global: las pruebas le pasan su propio
-    # diccionario. Por eso se inicializa a traves de scope y no por su nombre,
-    # que ahi todavia no existe.
+        
         scope[model_name].init_class(
             db_collection=db[model_name],
             indexes=indexes,
@@ -401,10 +397,6 @@ if __name__ == '__main__':
     r.aforo = 18000
     r.save()
     print("servicios sigue ahí:", Recinto._db.find_one({"_id": r._id}).get("servicios"))
-
-    # Modificar un campo admitido y guardar (solo actualiza ese campo)
-    r.aforo = 18000
-    r.save()
 
     # Buscar con find y obtener el primer documento
     primero = next(iter(Recinto.find({"nombre": "Wizink Center"})))
